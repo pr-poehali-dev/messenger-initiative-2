@@ -25,39 +25,49 @@ export default function Auth({ onAuth }: AuthProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const contact = method === 'phone' ? phone : email;
+  // Нормализуем телефон — только цифры, всегда начинается с 7
+  const normalizePhone = (v: string) => {
+    let d = v.replace(/\D/g, '');
+    if (d.startsWith('8')) d = '7' + d.slice(1);
+    if (!d.startsWith('7') && d.length > 0) d = '7' + d;
+    return d;
+  };
 
-  const validatePhone = (v: string) => /^\+7\s?\(?\d{3}\)?\s?\d{3}-?\d{2}-?\d{2}$/.test(v) || v.replace(/\D/g, '').length >= 11;
-  const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  const contact = method === 'phone' ? normalizePhone(phone) : email.trim().toLowerCase();
+
+  const validatePhone = (v: string) => normalizePhone(v).length === 11;
+  const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
   const handlePhoneInput = (v: string) => {
     let digits = v.replace(/\D/g, '');
     if (digits.startsWith('8')) digits = '7' + digits.slice(1);
-    if (digits.startsWith('7')) {
-      let result = '+7';
-      if (digits.length > 1) result += ' (' + digits.slice(1, 4);
-      if (digits.length >= 4) result += ') ' + digits.slice(4, 7);
-      if (digits.length >= 7) result += '-' + digits.slice(7, 9);
-      if (digits.length >= 9) result += '-' + digits.slice(9, 11);
-      setPhone(result);
-    } else {
-      setPhone(v);
-    }
+    if (!digits.startsWith('7') && digits.length > 0) digits = '7' + digits;
+    // Форматируем красиво
+    let result = '';
+    if (digits.length > 0) result = '+7';
+    if (digits.length > 1) result += ' (' + digits.slice(1, Math.min(4, digits.length));
+    if (digits.length >= 4) result += ') ' + digits.slice(4, Math.min(7, digits.length));
+    if (digits.length >= 7) result += '-' + digits.slice(7, Math.min(9, digits.length));
+    if (digits.length >= 9) result += '-' + digits.slice(9, 11);
+    setPhone(result);
   };
 
   const handleSubmit = async () => {
     setError('');
-    if (method === 'phone' && !validatePhone(phone)) {
-      setError('Введите корректный номер телефона'); return;
+    if (method === 'phone') {
+      if (!phone) { setError('Введите номер телефона'); return; }
+      if (!validatePhone(phone)) { setError('Введите полный номер: +7 (XXX) XXX-XX-XX'); return; }
     }
-    if (method === 'email' && !validateEmail(email)) {
-      setError('Введите корректный email'); return;
+    if (method === 'email') {
+      if (!email.trim()) { setError('Введите email'); return; }
+      if (!validateEmail(email)) { setError('Неверный формат email, например: ivan@mail.ru'); return; }
     }
     if (mode === 'register' && name.trim().length < 2) {
       setError('Введите имя (минимум 2 символа)'); return;
     }
+    if (!password) { setError('Введите пароль'); return; }
     if (password.length < 6) {
-      setError('Пароль должен быть не менее 6 символов'); return;
+      setError('Пароль слишком короткий — минимум 6 символов'); return;
     }
 
     setLoading(true);
@@ -224,28 +234,35 @@ export default function Auth({ onAuth }: AuthProps) {
               )}
 
               {/* Phone / Email */}
-              <div className="relative">
-                <Icon name={method === 'phone' ? 'Phone' : 'Mail'} size={16}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                {method === 'phone' ? (
-                  <input
-                    type="tel"
-                    placeholder="+7 (999) 000-00-00"
-                    value={phone}
-                    onChange={e => handlePhoneInput(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm border text-foreground placeholder:text-muted-foreground focus:outline-none transition-all"
-                    style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}
-                  />
-                ) : (
-                  <input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm border text-foreground placeholder:text-muted-foreground focus:outline-none transition-all"
-                    style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}
-                  />
-                )}
+              <div className="flex flex-col gap-1">
+                <div className="relative">
+                  <Icon name={method === 'phone' ? 'Phone' : 'Mail'} size={16}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  {method === 'phone' ? (
+                    <input
+                      type="tel"
+                      placeholder="+7 (999) 000-00-00"
+                      value={phone}
+                      onChange={e => handlePhoneInput(e.target.value)}
+                      maxLength={18}
+                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm border text-foreground placeholder:text-muted-foreground focus:outline-none transition-all"
+                      style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}
+                    />
+                  ) : (
+                    <input
+                      type="email"
+                      placeholder="ivan@mail.ru"
+                      value={email}
+                      onChange={e => { setEmail(e.target.value); setError(''); }}
+                      onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm border text-foreground placeholder:text-muted-foreground focus:outline-none transition-all"
+                      style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}
+                    />
+                  )}
+                </div>
+                <span className="text-[11px] text-muted-foreground px-1">
+                  {method === 'phone' ? 'Формат: +7 (999) 123-45-67' : 'Например: ivan@mail.ru или ivan@gmail.com'}
+                </span>
               </div>
 
               {/* Password */}
