@@ -95,7 +95,12 @@ const SETTINGS_ITEMS = [
   { icon: 'Info', label: 'О приложении', desc: 'Версия 2.4.1' },
 ];
 
-export default function Index() {
+interface IndexProps {
+  user: { name: string; avatar: string; contact: string };
+  onLogout: () => void;
+}
+
+export default function Index({ user, onLogout }: IndexProps) {
   const [activeTab, setActiveTab] = useState<Tab>('chats');
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [search, setSearch] = useState('');
@@ -225,10 +230,14 @@ export default function Index() {
         <div className="flex-1" />
 
         {/* Profile avatar */}
-        <div className="mt-3 w-10 h-10 rounded-2xl flex items-center justify-center text-lg cursor-pointer ring-2 ring-border hover:ring-primary/50 transition-all"
-          style={{ background: 'hsl(220,16%,14%)' }}>
-          🚀
-        </div>
+        <button
+          onClick={() => { setActiveTab('settings'); setSelectedChat(null); }}
+          className="mt-3 w-10 h-10 rounded-2xl flex items-center justify-center text-lg cursor-pointer ring-2 ring-border hover:ring-primary/50 transition-all"
+          style={{ background: 'hsl(220,16%,14%)' }}
+          title={user.name}
+        >
+          {user.avatar}
+        </button>
       </nav>
 
       {/* Left Panel */}
@@ -346,11 +355,11 @@ export default function Index() {
                 style={{ background: 'linear-gradient(135deg, rgba(147,89,245,0.15), rgba(34,211,238,0.08))', border: '1px solid rgba(147,89,245,0.2)' }}>
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
                   style={{ background: 'hsl(220,14%,18%)' }}>
-                  🚀
+                  {user.avatar}
                 </div>
-                <div>
-                  <div className="font-bold text-foreground">Мой профиль</div>
-                  <div className="text-sm text-muted-foreground">+7 999 000-00-00</div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-foreground truncate">{user.name}</div>
+                  <div className="text-sm text-muted-foreground truncate">{user.contact}</div>
                   <div className="text-xs mt-0.5" style={{ color: 'hsl(185,90%,55%)' }}>В сети</div>
                 </div>
               </div>
@@ -370,6 +379,21 @@ export default function Index() {
                   <Icon name="ChevronRight" size={16} className="text-muted-foreground" />
                 </button>
               ))}
+
+              {/* Logout */}
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl hover:bg-red-500/10 transition-all text-left mt-2 animate-fade-in"
+                style={{ animationDelay: '350ms', border: '1px solid rgba(239,68,68,0.15)' }}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(239,68,68,0.1)' }}>
+                  <Icon name="LogOut" size={18} className="text-red-400" />
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-red-400">Выйти из аккаунта</div>
+                  <div className="text-xs text-muted-foreground">{user.contact}</div>
+                </div>
+              </button>
             </div>
           )}
         </div>
