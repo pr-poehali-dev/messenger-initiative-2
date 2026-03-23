@@ -17,6 +17,7 @@ interface User {
   name: string;
   avatar: string;
   contact: string;
+  username?: string;
 }
 
 const App = () => {
@@ -31,7 +32,7 @@ const App = () => {
     })
       .then(r => r.json())
       .then(data => {
-        if (data.user) setUser({ name: data.user.name, avatar: data.user.avatar || '🚀', contact: data.user.contact });
+        if (data.user) setUser({ name: data.user.name, avatar: data.user.avatar || '🚀', contact: data.user.contact, username: data.user.username });
         else localStorage.removeItem('pulse_token');
       })
       .catch(() => localStorage.removeItem('pulse_token'))

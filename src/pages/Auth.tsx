@@ -8,7 +8,7 @@ type Mode = 'login' | 'register' | 'code';
 type Method = 'phone' | 'email';
 
 interface AuthProps {
-  onAuth: (user: { name: string; avatar: string; contact: string }) => void;
+  onAuth: (user: { name: string; avatar: string; contact: string; username?: string }) => void;
 }
 
 const WAVE_HEIGHTS = [6, 10, 14, 8, 16, 12, 6, 14, 10, 16, 8, 12];
@@ -19,6 +19,7 @@ export default function Auth({ onAuth }: AuthProps) {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState(['', '', '', '']);
   const [showPass, setShowPass] = useState(false);
@@ -62,8 +63,12 @@ export default function Auth({ onAuth }: AuthProps) {
       if (!email.trim()) { setError('Введите email'); return; }
       if (!validateEmail(email)) { setError('Неверный формат email, например: ivan@mail.ru'); return; }
     }
-    if (mode === 'register' && name.trim().length < 2) {
-      setError('Введите имя (минимум 2 символа)'); return;
+    if (mode === 'register') {
+      if (name.trim().length < 2) { setError('Введите имя (минимум 2 символа)'); return; }
+      const uname = username.trim().toLowerCase();
+      if (!uname) { setError('Введите username'); return; }
+      if (uname.length < 3) { setError('Username минимум 3 символа'); return; }
+      if (!/^[a-zA-Z0-9_]+$/.test(uname)) { setError('Username: только латинские буквы, цифры и _'); return; }
     }
     if (!password) { setError('Введите пароль'); return; }
     if (password.length < 6) {
@@ -76,7 +81,7 @@ export default function Auth({ onAuth }: AuthProps) {
       const res = await fetch(`${AUTH_URL}?action=${action}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), contact, password }),
+        body: JSON.stringify({ name: name.trim(), contact, password, username: username.trim().toLowerCase() }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -85,7 +90,7 @@ export default function Auth({ onAuth }: AuthProps) {
         return;
       }
       localStorage.setItem('pulse_token', data.token);
-      onAuth({ name: data.user.name, avatar: data.user.avatar || '🚀', contact: data.user.contact });
+      onAuth({ name: data.user.name, avatar: data.user.avatar || '🚀', contact: data.user.contact, username: data.user.username });
     } catch {
       setError('Нет соединения с сервером');
     }
@@ -218,19 +223,38 @@ export default function Auth({ onAuth }: AuthProps) {
                 ))}
               </div>
 
-              {/* Name (only register) */}
+              {/* Name + Username (only register) */}
               {mode === 'register' && (
-                <div className="relative animate-fade-in">
-                  <Icon name="User" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Ваше имя"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm border text-foreground placeholder:text-muted-foreground focus:outline-none transition-all"
-                    style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}
-                  />
-                </div>
+                <>
+                  <div className="relative animate-fade-in">
+                    <Icon name="User" size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Ваше имя"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      className="w-full pl-11 pr-4 py-3.5 rounded-2xl text-sm border text-foreground placeholder:text-muted-foreground focus:outline-none transition-all"
+                      style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.08)' }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 animate-fade-in">
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono">@</span>
+                      <input
+                        type="text"
+                        placeholder="username"
+                        value={username}
+                        onChange={e => setUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, '').toLowerCase())}
+                        maxLength={32}
+                        className="w-full pl-9 pr-4 py-3.5 rounded-2xl text-sm border text-foreground placeholder:text-muted-foreground focus:outline-none transition-all font-mono"
+                        style={{ background: 'rgba(255,255,255,0.05)', borderColor: username.length >= 3 ? 'rgba(147,89,245,0.4)' : 'rgba(255,255,255,0.08)' }}
+                      />
+                    </div>
+                    <span className="text-[11px] text-muted-foreground px-1">
+                      Латинские буквы, цифры и _ • минимум 3 символа
+                    </span>
+                  </div>
+                </>
               )}
 
               {/* Phone / Email */}

@@ -96,8 +96,15 @@ const SETTINGS_ITEMS = [
 ];
 
 interface IndexProps {
-  user: { name: string; avatar: string; contact: string };
+  user: { name: string; avatar: string; contact: string; username?: string };
   onLogout: () => void;
+}
+
+interface SearchResult {
+  id: number;
+  name: string;
+  username: string;
+  avatar: string;
 }
 
 export default function Index({ user, onLogout }: IndexProps) {
@@ -111,6 +118,8 @@ export default function Index({ user, onLogout }: IndexProps) {
   const [chatList, setChatList] = useState<Chat[]>(CHATS);
   const [typing, setTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const displayChats = activeTab === 'archive' ? ARCHIVE_CHATS : chatList;
   const filteredChats = displayChats.filter(c =>
@@ -125,6 +134,26 @@ export default function Index({ user, onLogout }: IndexProps) {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentMessages, typing]);
+
+  // Поиск по username при вводе в разделе контактов
+  useEffect(() => {
+    if (activeTab !== 'contacts') return;
+    const q = search.trim().replace(/^@/, '');
+    if (q.length < 2) { setSearchResults([]); return; }
+    setSearchLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem('pulse_token') || '';
+        const res = await fetch(`https://functions.poehali.dev/a0016401-413c-4a73-828c-7a130682f4ae?action=search&q=${encodeURIComponent(q)}`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        const data = await res.json();
+        setSearchResults(data.users || []);
+      } catch { setSearchResults([]); }
+      setSearchLoading(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search, activeTab]);
 
   const getNow = () => {
     const d = new Date();
@@ -323,29 +352,48 @@ export default function Index({ user, onLogout }: IndexProps) {
 
           {activeTab === 'contacts' && (
             <div className="flex flex-col gap-1">
-              {filteredContacts.map((c, i) => (
-                <div key={c.id}
-                  className="flex items-center gap-3 px-3 py-3 rounded-2xl transition-all animate-fade-in cursor-pointer hover:bg-white/4"
+              {/* Подсказка */}
+              {!search && (
+                <div className="px-3 py-3 text-xs text-muted-foreground flex items-center gap-2">
+                  <Icon name="AtSign" size={13} />
+                  Введите @username чтобы найти пользователя
+                </div>
+              )}
+
+              {/* Индикатор загрузки */}
+              {searchLoading && (
+                <div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground">
+                  <Icon name="Loader2" size={14} className="animate-spin" />
+                  Поиск...
+                </div>
+              )}
+
+              {/* Результаты поиска по username */}
+              {search.length >= 2 && !searchLoading && searchResults.map((r, i) => (
+                <div key={r.id}
+                  className="flex items-center gap-3 px-3 py-3 rounded-2xl transition-all animate-fade-in cursor-pointer hover:bg-white/5"
                   style={{ animationDelay: `${i * 40}ms` }}>
-                  <div className="relative flex-shrink-0">
-                    <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl"
-                      style={{ background: 'hsl(220,14%,18%)' }}>
-                      {c.avatar}
-                    </div>
-                    {c.online && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-background"
-                        style={{ background: 'hsl(185,90%,55%)' }} />
-                    )}
+                  <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl flex-shrink-0"
+                    style={{ background: 'hsl(220,14%,18%)' }}>
+                    {r.avatar || '👤'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm text-foreground">{c.name}</div>
-                    <div className="text-xs text-muted-foreground">{c.phone}</div>
+                    <div className="font-semibold text-sm text-foreground">{r.name}</div>
+                    <div className="text-xs font-mono" style={{ color: 'hsl(265,85%,70%)' }}>@{r.username}</div>
                   </div>
                   <button className="w-8 h-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/5 transition-all">
                     <Icon name="MessageCircle" size={16} />
                   </button>
                 </div>
               ))}
+
+              {/* Нет результатов */}
+              {search.length >= 2 && !searchLoading && searchResults.length === 0 && (
+                <div className="text-center text-muted-foreground text-sm py-6 animate-fade-in">
+                  <div className="text-2xl mb-2">🔍</div>
+                  Пользователь @{search.replace('@', '')} не найден
+                </div>
+              )}
             </div>
           )}
 
@@ -359,6 +407,9 @@ export default function Index({ user, onLogout }: IndexProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold text-foreground truncate">{user.name}</div>
+                  {user.username && (
+                    <div className="text-xs font-mono mb-0.5" style={{ color: 'hsl(265,85%,70%)' }}>@{user.username}</div>
+                  )}
                   <div className="text-sm text-muted-foreground truncate">{user.contact}</div>
                   <div className="text-xs mt-0.5" style={{ color: 'hsl(185,90%,55%)' }}>В сети</div>
                 </div>

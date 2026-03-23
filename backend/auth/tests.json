@@ -4,7 +4,7 @@
       "name": "Register new user",
       "method": "POST",
       "path": "/?action=register",
-      "body": {"name": "Тест Юзер", "contact": "test_pulse_unique99@example.com", "password": "secret123"},
+      "body": {"name": "Тест Юзер", "contact": "test_pulse_u77@example.com", "password": "secret123", "username": "testuser77"},
       "expectedStatus": 200,
       "expectedBody": {"token": "string"},
       "bodyMatcher": "partial"
@@ -13,7 +13,7 @@
       "name": "Login with correct credentials",
       "method": "POST",
       "path": "/?action=login",
-      "body": {"contact": "test_pulse_unique99@example.com", "password": "secret123"},
+      "body": {"contact": "test_pulse_u77@example.com", "password": "secret123"},
       "expectedStatus": 200,
       "expectedBody": {"token": "string"},
       "bodyMatcher": "partial"
@@ -22,7 +22,7 @@
       "name": "Login with wrong password",
       "method": "POST",
       "path": "/?action=login",
-      "body": {"contact": "test_pulse_unique99@example.com", "password": "wrongpass"},
+      "body": {"contact": "test_pulse_u77@example.com", "password": "wrongpass"},
       "expectedStatus": 401,
       "expectedBody": {"error": "string"},
       "bodyMatcher": "partial"
