@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 
 type Tab = 'chats' | 'contacts' | 'archive' | 'settings';
@@ -55,13 +55,36 @@ const CONTACTS: Contact[] = [
   { id: 7, name: 'Саша Белов', avatar: '🎸', phone: '+7 909 789-01-23', online: false },
 ];
 
-const MESSAGES: Message[] = [
-  { id: 1, text: 'Привет! Как дела?', time: '14:20', out: false },
-  { id: 2, text: 'Всё отлично! Готовлюсь к встрече 😊', time: '14:21', out: true },
-  { id: 3, text: '', time: '14:22', out: false, voice: true, duration: '0:15' },
-  { id: 4, text: 'Окей, услышал тебя. Буду в 7 вечера', time: '14:25', out: true },
-  { id: 5, text: 'Окей, увидимся в 7!', time: '14:32', out: false },
-];
+const AUTO_REPLIES: Record<number, string[]> = {
+  1: ['Отлично! 😊', 'Договорились!', 'Жду тебя!', 'Увидимся 🌸'],
+  2: ['Понял, принял!', 'Отлично, смотрю...', 'Спасибо! 👍', 'Супер работа!'],
+  3: ['👍', 'Ок, разбираемся', 'Хорошо, спасибо!', 'Понял тебя ⚡'],
+  4: ['Хорошо 🦋', 'Договорились!', 'Окей!', 'Спасибо за сообщение'],
+  5: ['Всегда пожалуйста! 🔥', 'Обращайся!', 'Рад помочь!'],
+  6: ['Да, в субботу! 🎸', 'Ок!', 'Буду!'],
+  7: ['Спасибо! 🌿', 'Рада слышать!', 'Отлично!'],
+};
+
+const INITIAL_MESSAGES: Record<number, Message[]> = {
+  1: [
+    { id: 1, text: 'Привет! Как дела?', time: '14:20', out: false },
+    { id: 2, text: 'Всё отлично! Готовлюсь к встрече 😊', time: '14:21', out: true },
+    { id: 3, text: '', time: '14:22', out: false, voice: true, duration: '0:15' },
+    { id: 4, text: 'Буду в 7 вечера', time: '14:25', out: true },
+    { id: 5, text: 'Окей, увидимся в 7!', time: '14:32', out: false },
+  ],
+  2: [
+    { id: 1, text: 'Привет! Презентацию доделал?', time: '13:00', out: true },
+    { id: 2, text: 'Да, почти готово!', time: '13:10', out: false },
+    { id: 3, text: 'Отлично, жду 🎯', time: '13:12', out: true },
+    { id: 4, text: 'Презентация готова, отправлю', time: '13:15', out: false },
+  ],
+  3: [
+    { id: 1, text: 'Когда деплой?', time: '11:50', out: true },
+    { id: 2, text: 'Сегодня в обед', time: '11:55', out: false },
+    { id: 3, text: 'Новая версия задеплоена!', time: '12:00', out: false },
+  ],
+};
 
 const SETTINGS_ITEMS = [
   { icon: 'Bell', label: 'Уведомления', desc: 'Звуки, вибрация, баннеры' },
@@ -79,14 +102,70 @@ export default function Index() {
   const [message, setMessage] = useState('');
   const [recording, setRecording] = useState(false);
   const [calling, setCalling] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Record<number, Message[]>>(INITIAL_MESSAGES);
+  const [chatList, setChatList] = useState<Chat[]>(CHATS);
+  const [typing, setTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const displayChats = activeTab === 'archive' ? ARCHIVE_CHATS : CHATS;
+  const displayChats = activeTab === 'archive' ? ARCHIVE_CHATS : chatList;
   const filteredChats = displayChats.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase())
   );
   const filteredContacts = CONTACTS.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const currentMessages = selectedChat ? (chatMessages[selectedChat.id] || []) : [];
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [currentMessages, typing]);
+
+  const getNow = () => {
+    const d = new Date();
+    return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+  };
+
+  const sendMessage = () => {
+    if (!message.trim() || !selectedChat) return;
+    const newMsg: Message = {
+      id: Date.now(),
+      text: message.trim(),
+      time: getNow(),
+      out: true,
+    };
+    const chatId = selectedChat.id;
+    setChatMessages(prev => ({
+      ...prev,
+      [chatId]: [...(prev[chatId] || []), newMsg],
+    }));
+    setChatList(prev => prev.map(c =>
+      c.id === chatId ? { ...c, lastMsg: message.trim(), time: getNow(), unread: 0 } : c
+    ));
+    setMessage('');
+
+    // Auto-reply
+    const replies = AUTO_REPLIES[chatId];
+    if (replies) {
+      setTyping(true);
+      setTimeout(() => {
+        const reply: Message = {
+          id: Date.now() + 1,
+          text: replies[Math.floor(Math.random() * replies.length)],
+          time: getNow(),
+          out: false,
+        };
+        setChatMessages(prev => ({
+          ...prev,
+          [chatId]: [...(prev[chatId] || []), reply],
+        }));
+        setChatList(prev => prev.map(c =>
+          c.id === chatId ? { ...c, lastMsg: reply.text, time: getNow() } : c
+        ));
+        setTyping(false);
+      }, 1200 + Math.random() * 800);
+    }
+  };
 
   const navItems = [
     { id: 'chats' as Tab, icon: 'MessageCircle', label: 'Чаты', badge: 11 },
@@ -340,10 +419,10 @@ export default function Index() {
                 <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
               </div>
 
-              {MESSAGES.map((msg, i) => (
+              {currentMessages.map((msg, i) => (
                 <div key={msg.id}
                   className={`flex animate-fade-in ${msg.out ? 'justify-end' : 'justify-start'}`}
-                  style={{ animationDelay: `${i * 60}ms` }}>
+                  style={{ animationDelay: `${Math.min(i, 5) * 40}ms` }}>
                   <div className={`max-w-xs lg:max-w-md px-4 py-2.5 rounded-2xl ${msg.out ? 'rounded-br-sm text-white' : 'rounded-bl-sm text-foreground'}`}
                     style={msg.out
                       ? { background: 'linear-gradient(135deg, hsl(265,85%,65%), hsl(320,85%,65%))' }
@@ -376,6 +455,26 @@ export default function Index() {
                   </div>
                 </div>
               ))}
+
+              {/* Typing indicator */}
+              {typing && (
+                <div className="flex justify-start animate-fade-in">
+                  <div className="px-4 py-3 rounded-2xl rounded-bl-sm flex items-center gap-1.5"
+                    style={{ background: 'hsl(220,14%,18%)' }}>
+                    {[0, 1, 2].map(j => (
+                      <span key={j} className="w-1.5 h-1.5 rounded-full"
+                        style={{
+                          background: 'hsl(265,85%,65%)',
+                          animation: `wave 1.2s ease-in-out infinite`,
+                          animationDelay: `${j * 0.15}s`,
+                          display: 'inline-block',
+                        }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input Bar */}
@@ -389,7 +488,7 @@ export default function Index() {
                   <textarea
                     value={message}
                     onChange={e => setMessage(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setMessage(''); } }}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
                     placeholder="Сообщение..."
                     rows={1}
                     className="w-full px-4 py-2.5 rounded-2xl text-sm border text-foreground placeholder:text-muted-foreground focus:outline-none transition-all resize-none"
@@ -401,7 +500,7 @@ export default function Index() {
                 </button>
                 {message.trim() ? (
                   <button
-                    onClick={() => setMessage('')}
+                    onClick={sendMessage}
                     className="w-11 h-11 rounded-2xl flex items-center justify-center text-white flex-shrink-0 transition-all hover:scale-105"
                     style={{ background: 'linear-gradient(135deg, hsl(265,85%,65%), hsl(185,90%,55%))', boxShadow: '0 4px 20px rgba(147,89,245,0.4)' }}>
                     <Icon name="Send" size={18} />
