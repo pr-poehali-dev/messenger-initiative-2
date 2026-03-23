@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import Icon from '@/components/ui/icon';
+import func2url from '../../backend/func2url.json';
+
+const AUTH_URL = func2url.auth;
 
 type Mode = 'login' | 'register' | 'code';
 type Method = 'phone' | 'email';
@@ -42,39 +45,41 @@ export default function Auth({ onAuth }: AuthProps) {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError('');
-    if (mode === 'login' || mode === 'register') {
-      if (method === 'phone' && !validatePhone(phone)) {
-        setError('Введите корректный номер телефона'); return;
-      }
-      if (method === 'email' && !validateEmail(email)) {
-        setError('Введите корректный email'); return;
-      }
-      if (mode === 'register' && name.trim().length < 2) {
-        setError('Введите имя (минимум 2 символа)'); return;
-      }
-      if (password.length < 6) {
-        setError('Пароль должен быть не менее 6 символов'); return;
-      }
-      setLoading(true);
-      setTimeout(() => {
-        setLoading(false);
-        if (mode === 'register') {
-          setMode('code');
-        } else {
-          onAuth({ name: method === 'phone' ? 'Пользователь' : email.split('@')[0], avatar: '🚀', contact });
-        }
-      }, 1000);
-    } else if (mode === 'code') {
-      const full = code.join('');
-      if (full.length < 4) { setError('Введите код из 4 цифр'); return; }
-      setLoading(true);
-      setTimeout(() => {
-        setLoading(false);
-        onAuth({ name: name || 'Пользователь', avatar: '🚀', contact });
-      }, 800);
+    if (method === 'phone' && !validatePhone(phone)) {
+      setError('Введите корректный номер телефона'); return;
     }
+    if (method === 'email' && !validateEmail(email)) {
+      setError('Введите корректный email'); return;
+    }
+    if (mode === 'register' && name.trim().length < 2) {
+      setError('Введите имя (минимум 2 символа)'); return;
+    }
+    if (password.length < 6) {
+      setError('Пароль должен быть не менее 6 символов'); return;
+    }
+
+    setLoading(true);
+    try {
+      const action = mode === 'register' ? 'register' : 'login';
+      const res = await fetch(`${AUTH_URL}?action=${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), contact, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Ошибка сервера');
+        setLoading(false);
+        return;
+      }
+      localStorage.setItem('pulse_token', data.token);
+      onAuth({ name: data.user.name, avatar: data.user.avatar || '🚀', contact: data.user.contact });
+    } catch {
+      setError('Нет соединения с сервером');
+    }
+    setLoading(false);
   };
 
   const handleCodeInput = (val: string, idx: number) => {
